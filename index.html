@@ -64,7 +64,11 @@
     </div>
 
     <ul id="list"></ul>
-    <button class="btn btn-report" onclick="generateReport()">Gerar Extrato Detalhado</button>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+    <button class="btn" style="background: #27ae60; color: white;" onclick="exportCSV()">Exportar p/ Excel</button>
+    <button class="btn" style="background: #c0392b; color: white;" onclick="resetApp()">Zerar Tudo</button>
+</div>
+<button class="btn btn-report" onclick="generateReport()">Gerar Extrato Detalhado</button>
     <div id="reportArea"></div>
 </div>
 
@@ -176,8 +180,43 @@
         area.innerText = report;
         area.style.display = 'block';
     }
+    // Função para Exportar os gastos em formato CSV
+    function exportCSV() {
+    if (transactions.length === 0) return alert("Não há dados para exportar!");
+
+    // Cabeçalho do arquivo
+    let csvContent = "data:text/csv;charset=utf-8,Data;Descricao;Valor\n";
+
+    // Adiciona cada transação como uma linha
+    transactions.forEach(t => {
+        const dataF = t.date.split('-').reverse().join('/');
+        const linha = `${dataF};${t.desc};${t.amount.toFixed(2)}`;
+        csvContent += linha + "\n";
+    });
+
+    // Cria um link temporário para download
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `meu_controle_financeiro_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+
+    link.click(); // Dispara o download
+    document.body.removeChild(link);
+}
+
+// Função para Resetar o App totalmente
+function resetApp() {
+    const confirmacao = confirm("ATENÇÃO: Isso apagará TODOS os gastos e configurações. Certifique-se de ter exportado para Excel antes. Deseja continuar?");
+    
+    if (confirmacao) {
+        localStorage.clear(); // Apaga todo o LocalStorage
+        location.reload();    // Reinicia o app do zero
+    }
+}
 
     updateUI();
 </script>
 </body>
 </html>
+
