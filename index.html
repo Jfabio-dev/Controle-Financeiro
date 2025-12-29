@@ -21,22 +21,9 @@
         .btn-add { background: #1a73e8; color: white; }
         .btn-report { background: #2c3e50; color: white; margin-top: 15px; }
         ul { list-style: none; padding: 0; margin-top: 20px; }
-        li { background: #fff; padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; font-size: 0.85rem; }
-        
-        /* Área do Relatório Estilizada */
-        #reportArea { 
-            display: none; 
-            background: #222; 
-            color: #1aff1a; 
-            padding: 20px; 
-            margin-top: 20px; 
-            font-family: 'Courier New', Courier, monospace; 
-            white-space: pre-wrap; 
-            border-radius: 8px; 
-            line-height: 1.4;
-            font-size: 0.85rem;
-            box-shadow: inset 0 0 10px #000;
-        }
+        li { background: #fff; padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
+        .del-btn { background: none; border: none; color: #e74c3c; cursor: pointer; font-weight: bold; margin-left: 10px; font-size: 1.1rem; }
+        #reportArea { display: none; background: #222; color: #1aff1a; padding: 20px; margin-top: 20px; font-family: 'Courier New', monospace; white-space: pre-wrap; border-radius: 8px; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -82,7 +69,7 @@
 </div>
 
 <script>
-    let transactions = JSON.parse(localStorage.getItem('financas_v7')) || [];
+    let transactions = JSON.parse(localStorage.getItem('financas_v8')) || [];
     const formatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
     const hoje = new Date(); hoje.setHours(0,0,0,0);
 
@@ -123,12 +110,23 @@
 
         const listEl = document.getElementById('list');
         listEl.innerHTML = '';
-        transactions.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5).forEach(t => {
+        
+        // Criamos uma cópia para ordenar sem bagunçar os IDs
+        const sortedTrans = [...transactions].sort((a,b) => new Date(b.date) - new Date(a.date));
+        
+        sortedTrans.slice(0,10).forEach(t => {
+            const realIndex = transactions.indexOf(t);
             const li = document.createElement('li');
-            li.innerHTML = `<span>${t.desc}</span> <b>${formatter.format(t.amount)}</b>`;
+            li.innerHTML = `
+                <span>${t.desc} (${t.date.split('-').reverse().slice(0,2).join('/')})</span>
+                <div>
+                    <b>${formatter.format(t.amount)}</b>
+                    <button class="del-btn" onclick="removeTrans(${realIndex})">✕</button>
+                </div>
+            `;
             listEl.appendChild(li);
         });
-        localStorage.setItem('financas_v7', JSON.stringify(transactions));
+        localStorage.setItem('financas_v8', JSON.stringify(transactions));
     }
 
     function addTrans() {
@@ -143,40 +141,40 @@
         }
     }
 
+    function removeTrans(index) {
+        if(confirm("Deseja realmente excluir este gasto?")) {
+            transactions.splice(index, 1);
+            updateUI();
+        }
+    }
+
     function generateReport() {
         const budget = parseFloat(document.getElementById('budgetInput').value) || 0;
         let total = 0;
-        const larguraTotal = 30; // Define a largura do relatório
+        const larguraTotal = 30;
 
         let report = `      EXTRATO DE CICLO\n`;
         report += `=".'.'.'.'.'.'.'.'.'.'.'.'.'.=" \n\n`;
         
-        transactions.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
+        [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
             const dataF = t.date.split('-').reverse().slice(0,2).join('/');
             const desc = `${dataF} ${t.desc}`;
             const valor = formatter.format(t.amount);
-            
-            // Lógica de alinhamento à direita
             const espaços = larguraTotal - desc.length - valor.length;
             report += desc + " ".repeat(Math.max(1, espaços)) + valor + "\n";
             total += t.amount;
         });
 
         report += `\n` + "-".repeat(larguraTotal) + `\n`;
-        const labelTotal = "TOTAL GASTO:";
         const valTotal = formatter.format(total);
-        report += labelTotal + " ".repeat(larguraTotal - labelTotal.length - valTotal.length) + valTotal + "\n";
-        
-        const labelSaldo = "SALDO FINAL:";
+        report += `TOTAL GASTO:` + " ".repeat(larguraTotal - 12 - valTotal.length) + valTotal + "\n";
         const valSaldo = formatter.format(budget - total);
-        report += labelSaldo + " ".repeat(larguraTotal - labelSaldo.length - valSaldo.length) + valSaldo + "\n";
-        report += "-".repeat(larguraTotal) + `\n`;
-        report += `      GERADO EM ${new Date().toLocaleDateString()}`;
+        report += `SALDO FINAL:` + " ".repeat(larguraTotal - 12 - valSaldo.length) + valSaldo + "\n";
+        report += "-".repeat(larguraTotal);
 
         const area = document.getElementById('reportArea');
         area.innerText = report;
         area.style.display = 'block';
-        window.scrollTo(0, document.body.scrollHeight);
     }
 
     updateUI();
