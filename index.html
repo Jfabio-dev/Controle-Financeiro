@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle Financeiro Elite</title>
+    <title>Controle Financeiro Elite v9</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
         .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
@@ -16,14 +16,14 @@
         .meta-card { border-top: 4px solid #3498db; background: #e3f2fd; }
         .spent-today-card { border-top: 4px solid #f39c12; background: #fff9c4; }
         .neg { color: #e74c3c; } .pos { color: #2ecc71; }
-        input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        input, select { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
         .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 5px; }
         .btn-add { background: #1a73e8; color: white; }
         .btn-report { background: #2c3e50; color: white; margin-top: 15px; }
         ul { list-style: none; padding: 0; margin-top: 20px; }
         li { background: #fff; padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
-        .del-btn { background: none; border: none; color: #e74c3c; cursor: pointer; font-weight: bold; margin-left: 10px; font-size: 1.1rem; }
-        #reportArea { display: none; background: #222; color: #1aff1a; padding: 20px; margin-top: 20px; font-family: 'Courier New', monospace; white-space: pre-wrap; border-radius: 8px; font-size: 0.85rem; }
+        .del-btn { background: none; border: none; color: #e74c3c; cursor: pointer; font-weight: bold; margin-left: 10px; }
+        #reportArea { display: none; background: #222; color: #1aff1a; padding: 20px; margin-top: 20px; font-family: 'Courier New', monospace; white-space: pre-wrap; border-radius: 8px; font-size: 0.82rem; }
     </style>
 </head>
 <body>
@@ -42,7 +42,7 @@
 
     <div class="balance-grid">
         <div class="card meta-card">
-            <small>Meta de Hoje</small>
+            <small>Meta do Dia (Fixa)</small>
             <strong id="dailyGoal">R$ 0,00</strong>
         </div>
         <div class="card spent-today-card">
@@ -57,26 +57,36 @@
     </div>
 
     <div class="input-group">
-        <input type="text" id="desc" placeholder="Descrição">
-        <input type="number" id="amount" placeholder="Valor">
+        <input type="text" id="desc" placeholder="O que você comprou?">
+        <input type="number" id="amount" placeholder="Valor (Ex: 50.00)">
+        <select id="category">
+            <option value="Alimentação">Alimentação</option>
+            <option value="Lazer">Lazer</option>
+            <option value="Transporte">Transporte</option>
+            <option value="Saúde">Saúde</option>
+            <option value="Outros">Outros</option>
+        </select>
         <input type="date" id="transDate">
         <button class="btn btn-add" onclick="addTrans()">Lançar Gasto</button>
     </div>
 
     <ul id="list"></ul>
+
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
-    <button class="btn" style="background: #27ae60; color: white;" onclick="exportCSV()">Exportar p/ Excel</button>
-    <button class="btn" style="background: #c0392b; color: white;" onclick="resetApp()">Zerar Tudo</button>
+        <button class="btn" style="background: #27ae60; color: white;" onclick="exportCSV()">Exportar CSV</button>
+        <button class="btn" style="background: #c0392b; color: white;" onclick="resetApp()">Zerar Tudo</button>
     </div>
+
     <button id="btnReport" class="btn btn-report" onclick="toggleReport()">Gerar Extrato Detalhado</button>
     <div id="reportArea"></div>
 </div>
 
 <script>
-    let transactions = JSON.parse(localStorage.getItem('financas_v8')) || [];
+    let transactions = JSON.parse(localStorage.getItem('financas_v9')) || [];
     const formatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
     const hoje = new Date(); hoje.setHours(0,0,0,0);
 
+    // Carregar configurações
     document.getElementById('startDateInput').value = localStorage.getItem('startDate') || new Date().toISOString().split('T')[0];
     document.getElementById('budgetInput').value = localStorage.getItem('budget') || '';
     document.getElementById('daysInput').value = localStorage.getItem('days') || '';
@@ -115,14 +125,16 @@
         const listEl = document.getElementById('list');
         listEl.innerHTML = '';
         
-        // Criamos uma cópia para ordenar sem bagunçar os IDs
+        // Exibe os últimos 10 gastos na tela
         const sortedTrans = [...transactions].sort((a,b) => new Date(b.date) - new Date(a.date));
-        
         sortedTrans.slice(0,10).forEach(t => {
             const realIndex = transactions.indexOf(t);
             const li = document.createElement('li');
             li.innerHTML = `
-                <span>${t.desc} (${t.date.split('-').reverse().slice(0,2).join('/')})</span>
+                <div>
+                    <b>${t.desc}</b><br>
+                    <small style="color:#888">${t.category} | ${t.date.split('-').reverse().slice(0,2).join('/')}</small>
+                </div>
                 <div>
                     <b>${formatter.format(t.amount)}</b>
                     <button class="del-btn" onclick="removeTrans(${realIndex})">✕</button>
@@ -130,15 +142,17 @@
             `;
             listEl.appendChild(li);
         });
-        localStorage.setItem('financas_v8', JSON.stringify(transactions));
+        localStorage.setItem('financas_v9', JSON.stringify(transactions));
     }
 
     function addTrans() {
         const desc = document.getElementById('desc').value;
         const amount = parseFloat(document.getElementById('amount').value);
+        const category = document.getElementById('category').value;
         const date = document.getElementById('transDate').value;
+        
         if (desc && amount && date) {
-            transactions.push({ desc, amount, date });
+            transactions.push({ desc, amount, category, date });
             document.getElementById('desc').value = '';
             document.getElementById('amount').value = '';
             updateUI();
@@ -146,95 +160,79 @@
     }
 
     function removeTrans(index) {
-        if(confirm("Deseja realmente excluir este gasto?")) {
+        if(confirm("Excluir este gasto?")) {
             transactions.splice(index, 1);
             updateUI();
         }
     }
 
     function toggleReport() {
-    const area = document.getElementById('reportArea');
-    const btn = document.getElementById('btnReport');
-
-    // Se a área já está visível, nós a ocultamos
-    if (area.style.display === 'block') {
-        area.style.display = 'none';
-        btn.innerText = "Gerar Extrato Detalhado";
-        btn.style.background = "#2c3e50"; // Volta para a cor original
-    } else {
-        // Se está oculta, gera o conteúdo e mostra
-        generateReportContent();
-        area.style.display = 'block';
-        btn.innerText = "Ocultar Extrato";
-        btn.style.background = "#e67e22"; // Muda de cor para indicar que pode fechar
-        window.scrollTo(0, document.body.scrollHeight);
+        const area = document.getElementById('reportArea');
+        const btn = document.getElementById('btnReport');
+        if (area.style.display === 'block') {
+            area.style.display = 'none';
+            btn.innerText = "Gerar Extrato Detalhado";
+            btn.style.background = "#2c3e50";
+        } else {
+            generateReportContent();
+            area.style.display = 'block';
+            btn.innerText = "Ocultar Extrato";
+            btn.style.background = "#e67e22";
+            window.scrollTo(0, document.body.scrollHeight);
+        }
     }
-}
 
-function generateReportContent() {
-    const budget = parseFloat(document.getElementById('budgetInput').value) || 0;
-    let total = 0;
-    const larguraTotal = 30;
+    function generateReportContent() {
+        const budget = parseFloat(document.getElementById('budgetInput').value) || 0;
+        let total = 0;
+        const larguraTotal = 32;
 
-    let report = `      EXTRATO DE CICLO\n`;
-    report += `=".'.'.'.'.'.'.'.'.'.'.'.'.'.=" \n\n`;
-    
-    [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
-        const dataF = t.date.split('-').reverse().slice(0,2).join('/');
-        const desc = `${dataF} ${t.desc}`;
-        const valor = formatter.format(t.amount);
-        const espaços = larguraTotal - desc.length - valor.length;
-        report += desc + " ".repeat(Math.max(1, espaços)) + valor + "\n";
-        total += t.amount;
-    });
+        let report = `      EXTRATO DE CICLO\n`;
+        report += `=".'.'.'.'.'.'.'.'.'.'.'.'.'.=" \n\n`;
+        
+        [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
+            const dataF = t.date.split('-').reverse().slice(0,2).join('/');
+            // No extrato, mostramos "Data Categoria: Descrição"
+            const label = `${dataF} [${t.category.substring(0,3)}] ${t.desc}`;
+            const valor = formatter.format(t.amount);
+            const espaços = larguraTotal - label.length - valor.length;
+            report += label + " ".repeat(Math.max(1, espaços)) + valor + "\n";
+            total += t.amount;
+        });
 
-    report += `\n` + "-".repeat(larguraTotal) + `\n`;
-    const valTotal = formatter.format(total);
-    report += `TOTAL GASTO:` + " ".repeat(larguraTotal - 12 - valTotal.length) + valTotal + "\n";
-    const valSaldo = formatter.format(budget - total);
-    report += `SALDO FINAL:` + " ".repeat(larguraTotal - 12 - valSaldo.length) + valSaldo + "\n";
-    report += "-".repeat(larguraTotal);
+        report += `\n` + "-".repeat(larguraTotal) + `\n`;
+        const valTotal = formatter.format(total);
+        report += `TOTAL GASTO:` + " ".repeat(larguraTotal - 12 - valTotal.length) + valTotal + "\n";
+        const valSaldo = formatter.format(budget - total);
+        report += `SALDO FINAL:` + " ".repeat(larguraTotal - 12 - valSaldo.length) + valSaldo + "\n";
+        report += "-".repeat(larguraTotal);
 
-    document.getElementById('reportArea').innerText = report;
-}
-    // Função para Exportar os gastos em formato CSV
+        document.getElementById('reportArea').innerText = report;
+    }
+
     function exportCSV() {
-    if (transactions.length === 0) return alert("Não há dados para exportar!");
-
-    // Cabeçalho do arquivo
-    let csvContent = "data:text/csv;charset=utf-8,Data;Descricao;Valor\n";
-
-    // Adiciona cada transação como uma linha
-    transactions.forEach(t => {
-        const dataF = t.date.split('-').reverse().join('/');
-        const linha = `${dataF};${t.desc};${t.amount.toFixed(2)}`;
-        csvContent += linha + "\n";
-    });
-
-    // Cria um link temporário para download
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `meu_controle_financeiro_${new Date().toLocaleDateString()}.csv`);
-    document.body.appendChild(link);
-
-    link.click(); // Dispara o download
-    document.body.removeChild(link);
-}
-
-// Função para Resetar o App totalmente
-function resetApp() {
-    const confirmacao = confirm("ATENÇÃO: Isso apagará TODOS os gastos e configurações. Certifique-se de ter exportado para Excel antes. Deseja continuar?");
-    
-    if (confirmacao) {
-        localStorage.clear(); // Apaga todo o LocalStorage
-        location.reload();    // Reinicia o app do zero
+        if (transactions.length === 0) return alert("Sem dados!");
+        let csv = "Data;Categoria;Descricao;Valor\n";
+        transactions.forEach(t => {
+            csv += `${t.date};${t.category};${t.desc};${t.amount.toFixed(2)}\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", "meu_extrato.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
-}
+
+    function resetApp() {
+        if (confirm("Resetar tudo? Exporte o CSV antes!")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
 
     updateUI();
 </script>
 </body>
 </html>
-
-
