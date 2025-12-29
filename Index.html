@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle Financeiro Elite</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
+        .header-date { text-align: center; color: #1a73e8; font-weight: bold; margin-bottom: 15px; text-transform: capitalize; }
+        .setup-box { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd; }
+        .balance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .card { padding: 12px; border-radius: 8px; background: #fff; border: 1px solid #eee; text-align: center; box-sizing: border-box; }
+        .card small { display: block; font-size: 0.65rem; color: #666; margin-bottom: 5px; text-transform: uppercase; font-weight: bold; }
+        .card strong { font-size: 1.1rem; }
+        .meta-card { border-top: 4px solid #3498db; background: #e3f2fd; }
+        .spent-today-card { border-top: 4px solid #f39c12; background: #fff9c4; }
+        .neg { color: #e74c3c; } .pos { color: #2ecc71; }
+        input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 5px; }
+        .btn-add { background: #1a73e8; color: white; }
+        .btn-report { background: #2c3e50; color: white; margin-top: 15px; }
+        ul { list-style: none; padding: 0; margin-top: 20px; }
+        li { background: #fff; padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; font-size: 0.85rem; }
+        
+        /* Área do Relatório Estilizada */
+        #reportArea { 
+            display: none; 
+            background: #222; 
+            color: #1aff1a; 
+            padding: 20px; 
+            margin-top: 20px; 
+            font-family: 'Courier New', Courier, monospace; 
+            white-space: pre-wrap; 
+            border-radius: 8px; 
+            line-height: 1.4;
+            font-size: 0.85rem;
+            box-shadow: inset 0 0 10px #000;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-date" id="dateDisplay"></div>
+    
+    <div class="setup-box">
+        <small>Aporte Total:</small>
+        <input type="number" id="budgetInput" placeholder="1000" oninput="updateUI()">
+        <small>Duração (dias):</small>
+        <input type="number" id="daysInput" placeholder="15" oninput="updateUI()">
+        <small>Data de Início:</small>
+        <input type="date" id="startDateInput" oninput="updateUI()">
+    </div>
+
+    <div class="balance-grid">
+        <div class="card meta-card">
+            <small>Meta de Hoje</small>
+            <strong id="dailyGoal">R$ 0,00</strong>
+        </div>
+        <div class="card spent-today-card">
+            <small>Gasto Hoje</small>
+            <strong id="spentToday">R$ 0,00</strong>
+        </div>
+    </div>
+    
+    <div class="card" style="width: 100%; margin-bottom: 15px;">
+        <small>Saldo Restante no Ciclo</small>
+        <strong id="totalBalance">R$ 0,00</strong>
+    </div>
+
+    <div class="input-group">
+        <input type="text" id="desc" placeholder="Descrição">
+        <input type="number" id="amount" placeholder="Valor">
+        <input type="date" id="transDate">
+        <button class="btn btn-add" onclick="addTrans()">Lançar Gasto</button>
+    </div>
+
+    <ul id="list"></ul>
+    <button class="btn btn-report" onclick="generateReport()">Gerar Extrato Detalhado</button>
+    <div id="reportArea"></div>
+</div>
+
+<script>
+    let transactions = JSON.parse(localStorage.getItem('financas_v7')) || [];
+    const formatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+
+    document.getElementById('startDateInput').value = localStorage.getItem('startDate') || new Date().toISOString().split('T')[0];
+    document.getElementById('budgetInput').value = localStorage.getItem('budget') || '';
+    document.getElementById('daysInput').value = localStorage.getItem('days') || '';
+    document.getElementById('transDate').value = new Date().toISOString().split('T')[0];
+
+    function updateUI() {
+        document.getElementById('dateDisplay').innerText = hoje.toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'long'});
+        const budget = parseFloat(document.getElementById('budgetInput').value) || 0;
+        const totalDays = parseInt(document.getElementById('daysInput').value) || 1;
+        const startDate = new Date(document.getElementById('startDateInput').value + 'T00:00:00');
+
+        localStorage.setItem('budget', budget);
+        localStorage.setItem('days', totalDays);
+        localStorage.setItem('startDate', document.getElementById('startDateInput').value);
+
+        let totalGeral = 0, gastosAteOntem = 0, gastosHoje = 0;
+
+        transactions.forEach(t => {
+            const val = parseFloat(t.amount);
+            totalGeral += val;
+            const tDate = new Date(t.date + 'T00:00:00');
+            if (tDate < hoje) gastosAteOntem += val;
+            else if (tDate.getTime() === hoje.getTime()) gastosHoje += val;
+        });
+
+        const diffMs = hoje - startDate;
+        const daysPassed = Math.floor(diffMs / (1000*60*60*24));
+        const daysRemaining = Math.max(1, totalDays - daysPassed);
+        const metaFixaHoje = (budget - gastosAteOntem) / daysRemaining;
+
+        document.getElementById('totalBalance').innerText = formatter.format(budget - totalGeral);
+        document.getElementById('dailyGoal').innerText = formatter.format(metaFixaHoje);
+        document.getElementById('spentToday').innerText = formatter.format(gastosHoje);
+        document.getElementById('spentToday').className = gastosHoje > metaFixaHoje ? 'neg' : 'pos';
+
+        const listEl = document.getElementById('list');
+        listEl.innerHTML = '';
+        transactions.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5).forEach(t => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span>${t.desc}</span> <b>${formatter.format(t.amount)}</b>`;
+            listEl.appendChild(li);
+        });
+        localStorage.setItem('financas_v7', JSON.stringify(transactions));
+    }
+
+    function addTrans() {
+        const desc = document.getElementById('desc').value;
+        const amount = parseFloat(document.getElementById('amount').value);
+        const date = document.getElementById('transDate').value;
+        if (desc && amount && date) {
+            transactions.push({ desc, amount, date });
+            document.getElementById('desc').value = '';
+            document.getElementById('amount').value = '';
+            updateUI();
+        }
+    }
+
+    function generateReport() {
+        const budget = parseFloat(document.getElementById('budgetInput').value) || 0;
+        let total = 0;
+        const larguraTotal = 30; // Define a largura do relatório
+
+        let report = `      EXTRATO DE CICLO\n`;
+        report += `=".'.'.'.'.'.'.'.'.'.'.'.'.'.=" \n\n`;
+        
+        transactions.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
+            const dataF = t.date.split('-').reverse().slice(0,2).join('/');
+            const desc = `${dataF} ${t.desc}`;
+            const valor = formatter.format(t.amount);
+            
+            // Lógica de alinhamento à direita
+            const espaços = larguraTotal - desc.length - valor.length;
+            report += desc + " ".repeat(Math.max(1, espaços)) + valor + "\n";
+            total += t.amount;
+        });
+
+        report += `\n` + "-".repeat(larguraTotal) + `\n`;
+        const labelTotal = "TOTAL GASTO:";
+        const valTotal = formatter.format(total);
+        report += labelTotal + " ".repeat(larguraTotal - labelTotal.length - valTotal.length) + valTotal + "\n";
+        
+        const labelSaldo = "SALDO FINAL:";
+        const valSaldo = formatter.format(budget - total);
+        report += labelSaldo + " ".repeat(larguraTotal - labelSaldo.length - valSaldo.length) + valSaldo + "\n";
+        report += "-".repeat(larguraTotal) + `\n`;
+        report += `      GERADO EM ${new Date().toLocaleDateString()}`;
+
+        const area = document.getElementById('reportArea');
+        area.innerText = report;
+        area.style.display = 'block';
+        window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    updateUI();
+</script>
+</body>
+</html>
