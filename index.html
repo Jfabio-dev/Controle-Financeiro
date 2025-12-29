@@ -67,8 +67,8 @@
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
     <button class="btn" style="background: #27ae60; color: white;" onclick="exportCSV()">Exportar p/ Excel</button>
     <button class="btn" style="background: #c0392b; color: white;" onclick="resetApp()">Zerar Tudo</button>
-</div>
-<button class="btn btn-report" onclick="generateReport()">Gerar Extrato Detalhado</button>
+    </div>
+    <button id="btnReport" class="btn btn-report" onclick="toggleReport()">Gerar Extrato Detalhado</button>
     <div id="reportArea"></div>
 </div>
 
@@ -152,34 +152,51 @@
         }
     }
 
-    function generateReport() {
-        const budget = parseFloat(document.getElementById('budgetInput').value) || 0;
-        let total = 0;
-        const larguraTotal = 30;
+    function toggleReport() {
+    const area = document.getElementById('reportArea');
+    const btn = document.getElementById('btnReport');
 
-        let report = `      EXTRATO DE CICLO\n`;
-        report += `=".'.'.'.'.'.'.'.'.'.'.'.'.'.=" \n\n`;
-        
-        [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
-            const dataF = t.date.split('-').reverse().slice(0,2).join('/');
-            const desc = `${dataF} ${t.desc}`;
-            const valor = formatter.format(t.amount);
-            const espaços = larguraTotal - desc.length - valor.length;
-            report += desc + " ".repeat(Math.max(1, espaços)) + valor + "\n";
-            total += t.amount;
-        });
-
-        report += `\n` + "-".repeat(larguraTotal) + `\n`;
-        const valTotal = formatter.format(total);
-        report += `TOTAL GASTO:` + " ".repeat(larguraTotal - 12 - valTotal.length) + valTotal + "\n";
-        const valSaldo = formatter.format(budget - total);
-        report += `SALDO FINAL:` + " ".repeat(larguraTotal - 12 - valSaldo.length) + valSaldo + "\n";
-        report += "-".repeat(larguraTotal);
-
-        const area = document.getElementById('reportArea');
-        area.innerText = report;
+    // Se a área já está visível, nós a ocultamos
+    if (area.style.display === 'block') {
+        area.style.display = 'none';
+        btn.innerText = "Gerar Extrato Detalhado";
+        btn.style.background = "#2c3e50"; // Volta para a cor original
+    } else {
+        // Se está oculta, gera o conteúdo e mostra
+        generateReportContent();
         area.style.display = 'block';
+        btn.innerText = "Ocultar Extrato";
+        btn.style.background = "#e67e22"; // Muda de cor para indicar que pode fechar
+        window.scrollTo(0, document.body.scrollHeight);
     }
+}
+
+function generateReportContent() {
+    const budget = parseFloat(document.getElementById('budgetInput').value) || 0;
+    let total = 0;
+    const larguraTotal = 30;
+
+    let report = `      EXTRATO DE CICLO\n`;
+    report += `=".'.'.'.'.'.'.'.'.'.'.'.'.'.=" \n\n`;
+    
+    [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
+        const dataF = t.date.split('-').reverse().slice(0,2).join('/');
+        const desc = `${dataF} ${t.desc}`;
+        const valor = formatter.format(t.amount);
+        const espaços = larguraTotal - desc.length - valor.length;
+        report += desc + " ".repeat(Math.max(1, espaços)) + valor + "\n";
+        total += t.amount;
+    });
+
+    report += `\n` + "-".repeat(larguraTotal) + `\n`;
+    const valTotal = formatter.format(total);
+    report += `TOTAL GASTO:` + " ".repeat(larguraTotal - 12 - valTotal.length) + valTotal + "\n";
+    const valSaldo = formatter.format(budget - total);
+    report += `SALDO FINAL:` + " ".repeat(larguraTotal - 12 - valSaldo.length) + valSaldo + "\n";
+    report += "-".repeat(larguraTotal);
+
+    document.getElementById('reportArea').innerText = report;
+}
     // Função para Exportar os gastos em formato CSV
     function exportCSV() {
     if (transactions.length === 0) return alert("Não há dados para exportar!");
@@ -219,4 +236,5 @@ function resetApp() {
 </script>
 </body>
 </html>
+
 
